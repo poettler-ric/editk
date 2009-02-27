@@ -4,17 +4,17 @@
 set highlight(types) [list keyword number string include]
 
 set highlight(keyword,config) "-foreground blue"
-set highlight(keyword,patterns) [list for|if|else|assign|set]
+set highlight(keyword,patterns) for|if|else|assign|set
 
 set highlight(number,config) "-foreground red"
-set highlight(number,patterns) [list \\d]
+set highlight(number,patterns) \\d
 
 set highlight(string,config) "-background green"
 #set highlight(string,patterns) [list (\[_\]).*\\1]
-set highlight(string,patterns) [list (\[\\\'\]).*\\1]
+set highlight(string,patterns) (\[\\\'\]).*\\1
 
 set highlight(include,config) "-background yellow"
-set highlight(include,patterns) [list \\{.*\\}]
+set highlight(include,patterns) \\{.*\\}
 
 # gui setup
 wm title . richiedit
@@ -62,12 +62,11 @@ proc highlight {{gobackChars 0}} {
 
 	# determine the right tag for the word
 	foreach config $highlight(types) {
-		foreach pattern $highlight($config,patterns) {
-			debug $pattern
-			if {[regexp $pattern $word]} {
-				debug "tag: $config"
-				.t tag add $config $beginIndex $endIndex
-			}
+		debug $highlight($config,patterns)
+		if {[regexp $highlight($config,patterns) $word]} {
+			debug "tag: $config"
+			.t tag add $config $beginIndex $endIndex
+			break
 		}
 	}
 }
