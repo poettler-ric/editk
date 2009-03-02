@@ -10,11 +10,10 @@ set highlight(number,config) "-foreground red"
 set highlight(number,patterns) \\d
 
 set highlight(string,config) "-background green"
-#set highlight(string,patterns) [list (\[_\]).*\\1]
-set highlight(string,patterns) (\[\\\'\]).*\\1
+set highlight(string,patterns) (\['\"\]).*?\\1
 
 set highlight(include,config) "-background yellow"
-set highlight(include,patterns) \\{.*\\}
+set highlight(include,patterns) \{.*?\}
 
 # gui setup
 wm title . richiedit
