@@ -49,23 +49,11 @@ bind .t <KeyRelease-Return> [list highlight 2]
 proc highlight {{gobackChars 0}} {
 	global highlight
 
-	# getting the word
-	set beginIndex [.t index [list insert - $gobackChars c wordstart]]
-	set endIndex [.t index [list insert - $gobackChars c wordend]]
-	set word [string trim [.t get $beginIndex $endIndex]]
-
-	# there is no real word, so nothing to highlight
-	if {[string length $word] < 1} {
-		return
-	}
-
 	# determine the right tag for the word
 	foreach config $highlight(types) {
 		debug $highlight($config,patterns)
-		if {[regexp $highlight($config,patterns) $word]} {
-			debug "tag: $config"
-			.t tag add $config $beginIndex $endIndex
-			break
+		forText .t -regexp $highlight($config,patterns) 1.0 end {
+			.t tag add $config matchStart matchEnd
 		}
 	}
 }
@@ -87,4 +75,73 @@ proc debug {message} {
 	incr i
 	.debug insert end "$i: $message\n"
 	.debug see end
+}
+
+proc forText {w args} {
+	# initialize search command; we may add to it, depending on the
+	# arguments passed in...
+	set searchCommand [list $w search -count count]
+
+	# Poor man's switch detection
+	set i 0
+	while {[string match {-*} [set arg [lindex $args $i]]]} {
+		if {[string match $arg* -regexp]} {
+			lappend searchCommand -regexp
+			incr i
+		} elseif {[string match $arg* -elide]} {
+			lappend searchCommand  -elide
+			incr i
+		} elseif {[string match $arg* -nocase]} {
+			lappend searchCommand  -nocase
+			incr i
+		} elseif {[string match $arg* -exact]} {
+			lappend searchCommand  -exact
+			incr i
+		} elseif {[string compare $arg --] == 0} {
+			incr i
+			break
+		} else {
+			return -code error "bad switch \"$arg\": must be\
+			--, -elide, -exact, -nocase or -regexp"
+		}
+	}
+
+	# parse remaining arguments, and finish building search command
+	foreach {pattern start end script} [lrange $args $i end] {break}
+	lappend searchCommand $pattern matchEnd searchLimit
+
+	# make sure these are of the canonical form
+	set start [$w index $start]
+	set end [$w index $end]
+
+	# place marks in the text to keep track of where we've been
+	# and where we're going
+	$w mark set matchStart $start
+	$w mark set matchEnd $start
+	$w mark set searchLimit $end
+
+	# default gravity is right, but we're setting it here just to
+	# be pedantic. It's critical that matchStart and matchEnd have
+	# left and right gravity, respectively, so that any text inserted
+	# by the caller duing the search won't normally (*) cause an infinite
+	# loop.
+	# (*) If the script inserts text after the matchEnd mark, and the
+	# text that was added matches the pattern, madness will ensue.
+	$w mark gravity searchLimit right
+	$w mark gravity matchStart left
+	$w mark gravity matchEnd right
+
+	# finally, the part that does useful work. Keep running the search
+	# command until we don't find anything else. Each time we find
+	# something, adjust the marks and execute the script
+	while {1} {
+		set cmd $searchCommand
+		set index [eval $searchCommand]
+		if {[string length $index] == 0} break
+
+		$w mark set matchStart $index
+		$w mark set matchEnd  [$w index "$index + $count c"]
+
+		uplevel $script
+	}
 }
