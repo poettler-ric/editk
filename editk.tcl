@@ -23,6 +23,23 @@ scrollbar .xscroll -command [list .t xview] -orient horizontal
 grid .t .yscroll -stick ns
 grid .xscroll x -stick ew
 grid configure .t -stick news
+
+# menu bar
+menu .menu -tearoff 0
+
+menu .menu.file -tearoff 0
+.menu add cascade -label "File" -menu .menu.file -underline 0
+.menu.file add command -label "Save" -command [list debug save] -underline 0
+.menu.file add command -label "Open" -command [list debug open] -underline 0
+.menu.file add cascade -label "Open recent" -menu .menu.file.recent -underline 5
+.menu.file add command -label "Close" -command [list debug close] -underline 0
+
+menu .menu.file.recent -tearoff 0
+.menu.file.recent add command -label "test 1" -command [list debug "test 1"]
+.menu.file.recent add command -label "test 2" -command [list debug "test 2"]
+
+. configure -menu .menu
+
 # debug window
 text .debug -height 10 -yscrollcommand [list .debugyscroll set] -xscrollcommand [list .debugxscroll set] -wrap none
 scrollbar .debugyscroll -command [list .debug yview] -orient vertical
