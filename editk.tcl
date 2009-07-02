@@ -29,8 +29,8 @@ menu .menu -tearoff 0
 
 menu .menu.file -tearoff 0
 .menu add cascade -label "File" -menu .menu.file -underline 0
-.menu.file add command -label "Save" -command [list debug save] -underline 0
-.menu.file add command -label "Open" -command [list debug open] -underline 0
+.menu.file add command -label "Save" -command saveFile -underline 0
+.menu.file add command -label "Open" -command openFile -underline 0
 .menu.file add cascade -label "Open recent" -menu .menu.file.recent -underline 5
 .menu.file add command -label "Close" -command [list debug close] -underline 0
 
@@ -160,5 +160,46 @@ proc forText {w args} {
 		$w mark set matchEnd  [$w index "$index + $count c"]
 
 		uplevel $script
+	}
+}
+
+# opens a new file
+proc openFile {} {
+	set filename [tk_getOpenFile]
+
+	# if no file was selected -> return
+	if {[string length $filename] == 0} {
+		return
+	}
+
+	debug "open $filename"
+	if {[catch {open $filename r} file]} {
+		debug "couldn't open $filename\n$file"
+	} else {
+		.t delete 1.0 end
+		.t insert end [read $file]
+		if {[catch {close $file} message]} {
+			debug "couldn't close $filename\n$message"
+		}
+	}
+}
+
+# saves a file
+proc saveFile {} {
+	set filename [tk_getSaveFile]
+
+	# if no file was selected -> return
+	if {[string length $filename] == 0} {
+		return
+	}
+
+	debug "save $filename"
+	if {[catch {open $filename w} file]} {
+		debug "couldn't open $filename\n$file"
+	} else {
+		puts -nonewline $file [.t get 1.0 end]
+		if {[catch {close $file} message]} {
+			debug "couldn't close $filename\n$message"
+		}
 	}
 }
