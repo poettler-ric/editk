@@ -80,6 +80,7 @@ proc bindTest {keysym} {
 	bind .t <KeyRelease-$keysym> [list debug "got: $keysym"]
 }
 
+# prints the actual position to the debug widget
 proc printPosition {{gobackChars 0}} {
 	debug "[.t index insert]: \
 		[.t index [list insert - $gobackChars c wordstart]] - \
@@ -87,6 +88,7 @@ proc printPosition {{gobackChars 0}} {
 }
 
 set i 0
+# prints a debug message
 proc debug {message} {
 	global i
 	incr i
