@@ -17,12 +17,19 @@ set highlight(include,patterns) \{.*?\}
 
 # gui setup
 wm title . richiedit
-text .t -yscrollcommand [list .yscroll set] -xscrollcommand [list .xscroll set] -wrap none
-scrollbar .yscroll -command [list .t yview] -orient vertical
-scrollbar .xscroll -command [list .t xview] -orient horizontal
-grid .t .yscroll -stick ns
-grid .xscroll x -stick ew
-grid configure .t -stick news
+grid [ttk::notebook .buffers] -
+ttk::notebook::enableTraversal .buffers
+
+# debug window
+text .debug -height 10 -yscrollcommand [list .debugyscroll set] -xscrollcommand [list .debugxscroll set] -wrap none
+scrollbar .debugyscroll -command [list .debug yview] -orient vertical
+scrollbar .debugxscroll -command [list .debug xview] -orient horizontal
+grid .debug .debugyscroll -stick ns
+grid .debugxscroll x -stick ew
+grid configure .debug -stick news
+
+grid rowconfigure . 0 -weight 1
+grid columnconfigure . 0 -weight 1
 
 # menu bar
 menu .menu -tearoff 0
@@ -40,51 +47,30 @@ menu .menu.file.recent -tearoff 0
 
 . configure -menu .menu
 
-# debug window
-text .debug -height 10 -yscrollcommand [list .debugyscroll set] -xscrollcommand [list .debugxscroll set] -wrap none
-scrollbar .debugyscroll -command [list .debug yview] -orient vertical
-scrollbar .debugxscroll -command [list .debug xview] -orient horizontal
-grid .debug .debugyscroll -stick ns
-grid .debugxscroll x -stick ew
-grid configure .debug -stick news
-
-grid rowconfigure . 0 -weight 1
-grid columnconfigure . 0 -weight 1
-
-
-# tag configuration
-foreach config $highlight(types) {
-	eval [list .t tag configure $config] $highlight($config,config)
-}
-
-# event bindings
-bind .t <KeyRelease-space> [list highlight 2]
-bind .t <KeyRelease-Tab> [list highlight 2]
-bind .t <KeyRelease-Return> [list highlight 2]
 
 # highlights the last word
-proc highlight {{gobackChars 0}} {
+proc highlight {textWidget {gobackChars 0}} {
 	global highlight
 
 	# determine the right tag for the word
 	foreach config $highlight(types) {
 		debug $highlight($config,patterns)
-		forText .t -regexp $highlight($config,patterns) 1.0 end {
-			.t tag add $config matchStart matchEnd
+		forText $textWidget -regexp $highlight($config,patterns) 1.0 end {
+			$textWidget tag add $config matchStart matchEnd
 		}
 	}
 }
 
 # debug procedures
-proc bindTest {keysym} {
-	bind .t <KeyRelease-$keysym> [list debug "got: $keysym"]
+proc bindTest {textWidget keysym} {
+	bind $textWidget <KeyRelease-$keysym> [list debug "got: $keysym"]
 }
 
 # prints the actual position to the debug widget
-proc printPosition {{gobackChars 0}} {
-	debug "[.t index insert]: \
-		[.t index [list insert - $gobackChars c wordstart]] - \
-		[.t index [list insert - $gobackChars c wordend]]"
+proc printPosition {textWidget {gobackChars 0}} {
+	debug "[$textWidget index insert]: \
+		[$textWidget index [list insert - $gobackChars c wordstart]] - \
+		[$textWidget index [list insert - $gobackChars c wordend]]"
 }
 
 set i 0
@@ -165,7 +151,7 @@ proc forText {w args} {
 	}
 }
 
-# opens a new file
+# opens a file in a new buffer
 proc openFile {} {
 	set filename [tk_getOpenFile]
 
@@ -178,15 +164,16 @@ proc openFile {} {
 	if {[catch {open $filename r} file]} {
 		debug "couldn't open $filename\n$file"
 	} else {
-		.t delete 1.0 end
-		.t insert end [read $file]
+		set textWidget [createBuffer $filename]
+		$textWidget delete 1.0 end
+		$textWidget insert end [read $file]
 		if {[catch {close $file} message]} {
 			debug "couldn't close $filename\n$message"
 		}
 	}
 }
 
-# saves a file
+# saves the current buffer to a file
 proc saveFile {} {
 	set filename [tk_getSaveFile]
 
@@ -199,9 +186,49 @@ proc saveFile {} {
 	if {[catch {open $filename w} file]} {
 		debug "couldn't open $filename\n$file"
 	} else {
-		puts -nonewline $file [.t get 1.0 end]
+		puts -nonewline $file [[.buffers select].t get 1.0 end]
 		if {[catch {close $file} message]} {
 			debug "couldn't close $filename\n$message"
 		}
+
+		# set the new buffername
+		.buffers tab current -text [file tail $filename]
 	}
 }
+
+set bufferCounter 0
+# creates a new buffer an returns the name of the inner textwidget
+proc createBuffer {{name "new file"}} {
+	global highlight
+	global bufferCounter
+
+	# if we got a real file set the buffername to the filename
+	if {[file isfile $name]} {
+		set name [file tail $name]
+	}
+
+	# create the frame
+	set buffer [frame .buffers.buffer[incr bufferCounter]]
+	text $buffer.t -yscrollcommand [list $buffer.yscroll set] -xscrollcommand [list $buffer.xscroll set] -wrap none
+	scrollbar $buffer.yscroll -command [list $buffer.t yview] -orient vertical
+	scrollbar $buffer.xscroll -command [list $buffer.t xview] -orient horizontal
+	grid $buffer.t $buffer.yscroll -stick ns
+	grid $buffer.xscroll x -stick ew
+	grid configure $buffer.t -stick news
+
+	# add the buffer to the bufferlist
+	.buffers add $buffer -text $name
+
+	# tag configuration
+	foreach config $highlight(types) {
+		eval [list $buffer.t tag configure $config] $highlight($config,config)
+	}
+
+	# highlight bindings
+	bind $buffer.t <KeyRelease-space> [list highlight $buffer.t 2]
+	bind $buffer.t <KeyRelease-Tab> [list highlight $buffer.t 2]
+	bind $buffer.t <KeyRelease-Return> [list highlight $buffer.t 2]
+
+	return $buffer.t
+}
+createBuffer
